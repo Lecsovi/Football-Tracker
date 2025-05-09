@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 const SETUP_KEY = 'tournament-setup';
+const TEAM_NAMES_KEY = 'tournament-team-names';
 
 export default function Setup({ onInitialize }) {
   const [groupCount, setGroupCount] = useState(4);
@@ -15,18 +16,19 @@ export default function Setup({ onInitialize }) {
 
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(SETUP_KEY);
+      const savedNames = localStorage.getItem(TEAM_NAMES_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         setGroupCount(parsed.length);
-        const sizes = {}, names = {};
+        const sizes = {};
         parsed.forEach(g => {
           sizes[g.letter] = g.size;
-          g.teams?.forEach((name, i) => {
-            names[`${g.letter}${i + 1}`] = name;
-          });
         });
         setGroupSizes(sizes);
-        setTeamNames(names);
+      }
+
+      if (savedNames) {
+        setTeamNames(JSON.parse(savedNames));
       }
     }
   }, []);
@@ -42,26 +44,26 @@ export default function Setup({ onInitialize }) {
   };
 
   const handleTeamNameChange = (id, name) => {
-    setTeamNames(prev => ({
-      ...prev,
-      [id]: name
-    }));
+    const trimmed = name.trim();
+    setTeamNames(prev => {
+      const updated = { ...prev, [id]: trimmed };
+      localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleStart = () => {
     const groupsConfig = Array.from({ length: groupCount }, (_, i) => {
       const letter = String.fromCharCode(65 + i);
       const size = groupSizes[letter] ?? 4;
-      const teams = Array.from({ length: size }, (_, idx) =>
-        teamNames[`${letter}${idx + 1}`]?.trim() || `Team ${letter}${idx + 1}`
-      );
+      const teams = Array.from({ length: size }, (_, idx) => {
+        const id = `${letter}${idx + 1}`;
+        return teamNames[id] || `Team ${id}`;
+      });
       return { letter, size, teams };
     });
 
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('tournament-team-names', JSON.stringify(teamNames));
-    }
-
+    localStorage.setItem(SETUP_KEY, JSON.stringify(groupsConfig));
     onInitialize(groupsConfig);
   };
 
