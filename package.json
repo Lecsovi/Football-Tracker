@@ -4,9 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "netlify build",
-    "netlify:build": "next build"
-  },
+    "build": "next build"
+    },
   "dependencies": {
     "@netlify/build": "^32.1.2",
     "@netlify/next": "^1.4.9",
