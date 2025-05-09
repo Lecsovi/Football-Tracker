@@ -112,7 +112,7 @@ export default function Home() {
       {page === 'standings' && (
         <Standings groups={tournament.groups} matches={matches} />
       )}
-      {page === 'rankings' && <Rankings groups={tournament.groups} />}
+      {page === 'rankings' && <Rankings groups={tournament.groups} matches={matches} />}
 
       {user.role === 'admin' && (
         <button
