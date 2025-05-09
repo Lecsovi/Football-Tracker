@@ -147,5 +147,9 @@ function sortGroupStandings(teams, matches) {
     }
 
     return b.gd - a.gd || b.gf - a.gf;
+
+    function compareTeams(a, b) {
+  return b.points - a.points || b.gd - a.gd || b.gf - a.gf;
+}
   });
 }

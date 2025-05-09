@@ -115,19 +115,34 @@ export default function Home() {
       {page === 'rankings' && <Rankings groups={tournament.groups} matches={matches} />}
 
       {user.role === 'admin' && (
-        <button
-          onClick={() => {
-            localStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem(MATCHES_KEY);
-            setTournament({ groups: [] });
-            setMatches([]);
-            setPage('setup');
-          }}
-          className="mt-6 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700"
-        >
-          Reset Tournament
-        </button>
-      )}
+  <div className="mt-6 space-y-4">
+    <button
+      onClick={() => {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(MATCHES_KEY);
+        setTournament({ groups: [] });
+        setMatches([]);
+        setPage('setup');
+      }}
+      className="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700"
+    >
+      Reset Tournament
+    </button>
+
+    <button
+      onClick={() => {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(MATCHES_KEY);
+        localStorage.removeItem('user');
+        localStorage.removeItem('tournament-team-names');
+        window.location.reload();
+      }}
+      className="bg-orange-600 text-white px-4 py-2 rounded shadow hover:bg-orange-700"
+    >
+      Clear All Data
+    </button>
+  </div>
+)}
     </main>
   );
 }
