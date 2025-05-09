@@ -1,6 +1,6 @@
 'use client';
 
-export default function Standings({ groups }) {
+export default function Standings({ groups, matches }) {
   return (
     <div className="space-y-10">
       {groups.map(group => (
@@ -24,11 +24,7 @@ export default function Standings({ groups }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {(group.standings || []).sort((a, b) => (
-                  b.points - a.points ||
-                  b.gd - a.gd ||
-                  b.gf - a.gf
-                )).map(team => (
+                {sortGroupStandingsWithTiebreakers(group, matches).map(team => (
                   <tr key={team.id} className="hover:bg-slate-50 transition">
                     <td className="px-3 py-2 font-medium text-gray-700">{team.team}</td>
                     <td className="px-3 py-2 text-center">{team.played}</td>
@@ -48,4 +44,52 @@ export default function Standings({ groups }) {
       ))}
     </div>
   );
+}
+
+function sortGroupStandingsWithTiebreakers(group, matches) {
+  const standings = [...(group.standings || [])];
+  const groupMatches = matches?.filter(m => m.group === group.name && m.goalsA !== '' && m.goalsB !== '') || [];
+
+  standings.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
+
+  let i = 0;
+  while (i < standings.length) {
+    let j = i + 1;
+    while (j < standings.length && standings[j].points === standings[i].points) j++;
+
+    if (j - i > 1) {
+      const tied = standings.slice(i, j);
+      const ids = new Set(tied.map(t => t.id));
+      const h2hMatches = groupMatches.filter(m => ids.has(m.teamA.id) && ids.has(m.teamB.id));
+
+      const h2hStats = {};
+      tied.forEach(t => {
+        h2hStats[t.id] = { id: t.id, team: t.team, points: 0 };
+      });
+
+      h2hMatches.forEach(m => {
+        const gA = parseInt(m.goalsA);
+        const gB = parseInt(m.goalsB);
+
+        if (gA > gB) h2hStats[m.teamA.id].points += 3;
+        else if (gA < gB) h2hStats[m.teamB.id].points += 3;
+        else {
+          h2hStats[m.teamA.id].points += 1;
+          h2hStats[m.teamB.id].points += 1;
+        }
+      });
+
+      const ranked = [...tied].sort((a, b) =>
+        h2hStats[b.id].points - h2hStats[a.id].points ||
+        b.gd - a.gd ||
+        b.gf - a.gf
+      );
+
+      standings.splice(i, j - i, ...ranked);
+    }
+
+    i = j;
+  }
+
+  return standings;
 }

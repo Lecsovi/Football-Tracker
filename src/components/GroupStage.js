@@ -54,9 +54,11 @@ export default function GroupStage({ groups, onUpdate, user }) {
         teamMap[`${groupLetter}${i + 1}`] = team;
       });
 
-      template.forEach(([h, a], idx) => {
-        const teamA = teamMap[h.replace('A', groupLetter)];
-        const teamB = teamMap[a.replace('A', groupLetter)];
+      template.forEach(([home, away], idx) => {
+        const homeId = home.replace('A', groupLetter);
+        const awayId = away.replace('A', groupLetter);
+        const teamA = teamMap[homeId];
+        const teamB = teamMap[awayId];
         if (teamA && teamB) {
           generated.push({
             id: `${groupLetter}-${idx}`,
@@ -78,7 +80,7 @@ export default function GroupStage({ groups, onUpdate, user }) {
   const updateMatches = (updated) => {
     setMatches(updated);
     localStorage.setItem(MATCHES_KEY, JSON.stringify(updated));
-    onUpdate && onUpdate(updated);
+    if (onUpdate) onUpdate(updated);
   };
 
   const handleInput = (id, field, value) => {

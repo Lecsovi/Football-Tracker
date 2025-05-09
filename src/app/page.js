@@ -9,56 +9,59 @@ import Rankings from '../components/Rankings';
 import Login from '../components/Login';
 
 const STORAGE_KEY = 'tournament-data';
-const SETUP_KEY = 'tournament-setup';
+const MATCHES_KEY = 'tournament-matches';
 
 export default function Home() {
+  const [user, setUser] = useState(null);
   const [page, setPage] = useState('setup');
   const [tournament, setTournament] = useState({ groups: [] });
-  const [user, setUser] = useState(null);
+  const [matches, setMatches] = useState([]);
 
+  // Load tournament and matches from localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      }
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const savedMatches = localStorage.getItem(MATCHES_KEY);
+    if (saved) {
+      setTournament(JSON.parse(saved));
+      setPage('groups');
+    }
+    if (savedMatches) {
+      setMatches(JSON.parse(savedMatches));
     }
   }, []);
 
+  // Save tournament whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setTournament(JSON.parse(saved));
-        setPage('groups');
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && tournament.groups.length > 0) {
+    if (tournament.groups.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tournament));
     }
   }, [tournament]);
 
+  // Save matches whenever they change
+  useEffect(() => {
+    if (matches.length > 0) {
+      localStorage.setItem(MATCHES_KEY, JSON.stringify(matches));
+    }
+  }, [matches]);
+
   const handleInitialize = (groupsConfig) => {
-    const groups = groupsConfig.map((g, i) => ({
+    const groups = groupsConfig.map((g) => ({
       name: g.letter,
       teams: Array.from({ length: g.size }, (_, idx) => ({
         id: `${g.letter}${idx + 1}`,
-        name: `Team ${g.letter}${idx + 1}`
+        name: `Team ${g.letter}${idx + 1}`,
       })),
     }));
 
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(SETUP_KEY, JSON.stringify(groupsConfig));
-    }
-
     setTournament({ groups });
+    setMatches([]); // Clear matches on new setup
+    localStorage.removeItem(MATCHES_KEY); // Clear old matches
     setPage('groups');
   };
 
   const handleMatchesUpdate = (updatedMatches) => {
+    setMatches(updatedMatches);
+
     const standings = calculateStandings(tournament.groups, updatedMatches);
     const updatedGroups = tournament.groups.map(group => ({
       ...group,
@@ -70,6 +73,9 @@ export default function Home() {
   const handleLogout = () => {
     localStorage.removeItem('user');
     setUser(null);
+    setTournament({ groups: [] });
+    setMatches([]);
+    setPage('setup');
   };
 
   if (!user) return <Login onLogin={setUser} />;
@@ -78,13 +84,13 @@ export default function Home() {
     <main>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold">Football Tournament Tracker</h1>
-        <div className="text-sm flex items-center gap-4">
-          <span>
+        <div className="text-right">
+          <div className="text-sm">
             Logged in as <strong>{user.username}</strong> ({user.role})
-          </span>
+          </div>
           <button
             onClick={handleLogout}
-            className="bg-gray-300 hover:bg-gray-400 px-3 py-1 text-sm rounded"
+            className="mt-1 bg-red-500 text-white px-3 py-1 text-sm rounded hover:bg-red-600"
           >
             Sign Out
           </button>
@@ -97,16 +103,24 @@ export default function Home() {
         <Setup onInitialize={handleInitialize} />
       )}
       {page === 'groups' && (
-        <GroupStage groups={tournament.groups} onUpdate={handleMatchesUpdate} user={user} />
+        <GroupStage
+          groups={tournament.groups}
+          onUpdate={handleMatchesUpdate}
+          user={user}
+        />
       )}
-      {page === 'standings' && <Standings groups={tournament.groups} />}
+      {page === 'standings' && (
+        <Standings groups={tournament.groups} matches={matches} />
+      )}
       {page === 'rankings' && <Rankings groups={tournament.groups} />}
 
       {user.role === 'admin' && (
         <button
           onClick={() => {
-            localStorage.clear();
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(MATCHES_KEY);
             setTournament({ groups: [] });
+            setMatches([]);
             setPage('setup');
           }}
           className="mt-6 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700"
@@ -127,8 +141,14 @@ function calculateStandings(groups, matches) {
       standingsObj[group.name][team.id] = {
         team: team.name,
         id: team.id,
-        played: 0, won: 0, drawn: 0, lost: 0,
-        gf: 0, ga: 0, gd: 0, points: 0
+        played: 0,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        gf: 0,
+        ga: 0,
+        gd: 0,
+        points: 0
       };
     });
   });
@@ -137,9 +157,15 @@ function calculateStandings(groups, matches) {
     const { group, teamA, teamB, goalsA, goalsB } = match;
     if (goalsA === '' || goalsB === '') return;
 
-    const a = standingsObj[group][teamA.id];
-    const b = standingsObj[group][teamB.id];
-    const gA = parseInt(goalsA), gB = parseInt(goalsB);
+    const groupStandings = standingsObj[group];
+    if (!groupStandings) return;
+
+    const a = groupStandings[teamA?.id];
+    const b = groupStandings[teamB?.id];
+    if (!a || !b) return;
+
+    const gA = parseInt(goalsA, 10);
+    const gB = parseInt(goalsB, 10);
 
     a.played++; b.played++;
     a.gf += gA; a.ga += gB;

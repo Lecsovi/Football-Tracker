@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  output: 'export', // for static export (required by Netlify)
 };
 
-export default nextConfig;
+module.exports = nextConfig;
