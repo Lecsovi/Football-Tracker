@@ -5,11 +5,14 @@ import useClientReady from '../hooks/useClientReady';
 
 const MATCHES_KEY = 'tournament-matches';
 
-export default function GroupStage({ groups, onUpdate }) {
+export default function GroupStage({ groups, onUpdate, user }) {
   const isClientReady = useClientReady();
   const [matches, setMatches] = useState([]);
   const [initialized, setInitialized] = useState(false);
   const [showTopButton, setShowTopButton] = useState(false);
+
+  const isAdmin = user?.role === 'admin';
+  const canEdit = user?.role === 'admin' || user?.role === 'groupEditor';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -31,69 +34,62 @@ export default function GroupStage({ groups, onUpdate }) {
   useEffect(() => {
     if (!isClientReady || initialized || !groups.length) return;
 
-    const loadMatches = () => {
-      const saved = typeof window !== 'undefined' ? localStorage.getItem(MATCHES_KEY) : null;
-      if (saved) {
-        setMatches(JSON.parse(saved));
-        setInitialized(true);
-        return;
-      }
+    const saved = localStorage.getItem(MATCHES_KEY);
+    if (saved) {
+      setMatches(JSON.parse(saved));
+      setInitialized(true);
+      return;
+    }
 
-      const generated = [];
+    const generated = [];
 
-      groups.forEach(group => {
-        const size = group.teams.length;
-        const template = fixtureTemplates[size];
-        const groupLetter = group.name;
+    groups.forEach(group => {
+      const size = group.teams.length;
+      const template = fixtureTemplates[size];
+      const groupLetter = group.name;
+      if (!template) return;
 
-        if (!template) return;
-
-        const teamMap = {};
-        group.teams.forEach((team, i) => {
-          teamMap[`${groupLetter}${i + 1}`] = team;
-        });
-
-        template.forEach(([h, a], idx) => {
-          const teamA = teamMap[h.replace('A', groupLetter)];
-          const teamB = teamMap[a.replace('A', groupLetter)];
-          if (teamA && teamB) {
-            generated.push({
-              id: `${groupLetter}-${idx}`,
-              group: groupLetter,
-              teamA,
-              teamB,
-              goalsA: '',
-              goalsB: ''
-            });
-          }
-        });
+      const teamMap = {};
+      group.teams.forEach((team, i) => {
+        teamMap[`${groupLetter}${i + 1}`] = team;
       });
 
-      setMatches(generated);
-      setInitialized(true);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(MATCHES_KEY, JSON.stringify(generated));
-      }
-    };
+      template.forEach(([h, a], idx) => {
+        const teamA = teamMap[h.replace('A', groupLetter)];
+        const teamB = teamMap[a.replace('A', groupLetter)];
+        if (teamA && teamB) {
+          generated.push({
+            id: `${groupLetter}-${idx}`,
+            group: groupLetter,
+            teamA,
+            teamB,
+            goalsA: '',
+            goalsB: ''
+          });
+        }
+      });
+    });
 
-    loadMatches();
+    setMatches(generated);
+    setInitialized(true);
+    localStorage.setItem(MATCHES_KEY, JSON.stringify(generated));
   }, [isClientReady, initialized, groups]);
 
   const updateMatches = (updated) => {
     setMatches(updated);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(MATCHES_KEY, JSON.stringify(updated));
-    }
-    if (onUpdate) onUpdate(updated);
+    localStorage.setItem(MATCHES_KEY, JSON.stringify(updated));
+    onUpdate && onUpdate(updated);
   };
 
   const handleInput = (id, field, value) => {
+    if (!canEdit) return;
     const sanitized = value === '' ? '' : Math.max(0, parseInt(value));
     const updated = matches.map(m => (m.id === id ? { ...m, [field]: sanitized } : m));
     updateMatches(updated);
   };
 
   const randomizeResults = () => {
+    if (!isAdmin) return;
     const randomized = matches.map(m => ({
       ...m,
       goalsA: String(Math.floor(Math.random() * 7)),
@@ -103,6 +99,7 @@ export default function GroupStage({ groups, onUpdate }) {
   };
 
   const resetResults = () => {
+    if (!isAdmin) return;
     const cleared = matches.map(m => ({ ...m, goalsA: '', goalsB: '' }));
     updateMatches(cleared);
   };
@@ -122,12 +119,16 @@ export default function GroupStage({ groups, onUpdate }) {
   return (
     <div className="space-y-10 relative">
       <div className="mb-6 flex flex-wrap gap-3 items-center">
-        <button onClick={randomizeResults} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition shadow">
-          Randomize All Results
-        </button>
-        <button onClick={resetResults} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition shadow">
-          Reset All Results
-        </button>
+        {isAdmin && (
+          <>
+            <button onClick={randomizeResults} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition shadow">
+              Randomize All Results
+            </button>
+            <button onClick={resetResults} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition shadow">
+              Reset All Results
+            </button>
+          </>
+        )}
         {groups.map(group => (
           <a
             key={group.name}
@@ -154,7 +155,8 @@ export default function GroupStage({ groups, onUpdate }) {
                     <input
                       type="number"
                       min="0"
-                      className="w-12 p-1 border rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      disabled={!canEdit}
+                      className="w-12 p-1 border rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
                       value={String(match.goalsA ?? '')}
                       onChange={(e) => handleInput(match.id, 'goalsA', e.target.value)}
                     />
@@ -162,7 +164,8 @@ export default function GroupStage({ groups, onUpdate }) {
                     <input
                       type="number"
                       min="0"
-                      className="w-12 p-1 border rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      disabled={!canEdit}
+                      className="w-12 p-1 border rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
                       value={String(match.goalsB ?? '')}
                       onChange={(e) => handleInput(match.id, 'goalsB', e.target.value)}
                     />
@@ -174,23 +177,25 @@ export default function GroupStage({ groups, onUpdate }) {
         </div>
       ))}
 
-      <button
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          backgroundColor: '#4f46e5',
-          color: 'white',
-          padding: '12px 20px',
-          fontSize: '18px',
-          borderRadius: '9999px',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
-          zIndex: 1000
-        }}
-      >
-        ↑ Top
-      </button>
+      {showTopButton && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            backgroundColor: '#4f46e5',
+            color: 'white',
+            padding: '12px 20px',
+            fontSize: '18px',
+            borderRadius: '9999px',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+            zIndex: 1000
+          }}
+        >
+          ↑ Top
+        </button>
+      )}
     </div>
   );
 }

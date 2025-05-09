@@ -6,6 +6,7 @@ import Setup from '../components/Setup';
 import GroupStage from '../components/GroupStage';
 import Standings from '../components/Standings';
 import Rankings from '../components/Rankings';
+import Login from '../components/Login';
 
 const STORAGE_KEY = 'tournament-data';
 const SETUP_KEY = 'tournament-setup';
@@ -13,19 +14,27 @@ const SETUP_KEY = 'tournament-setup';
 export default function Home() {
   const [page, setPage] = useState('setup');
   const [tournament, setTournament] = useState({ groups: [] });
+  const [user, setUser] = useState(null);
 
-  // Load tournament and page from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         setTournament(JSON.parse(saved));
-        setPage('groups'); // if data exists, jump to group stage
+        setPage('groups');
       }
     }
   }, []);
 
-  // Save tournament whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined' && tournament.groups.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tournament));
@@ -41,7 +50,6 @@ export default function Home() {
       })),
     }));
 
-    // Save setup config
     if (typeof window !== 'undefined') {
       localStorage.setItem(SETUP_KEY, JSON.stringify(groupsConfig));
     }
@@ -59,27 +67,53 @@ export default function Home() {
     setTournament({ groups: updatedGroups });
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+  };
+
+  if (!user) return <Login onLogin={setUser} />;
+
   return (
     <main>
-      <h1 className="text-3xl font-bold mb-4">Football Tournament Tracker</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-3xl font-bold">Football Tournament Tracker</h1>
+        <div className="text-sm flex items-center gap-4">
+          <span>
+            Logged in as <strong>{user.username}</strong> ({user.role})
+          </span>
+          <button
+            onClick={handleLogout}
+            className="bg-gray-300 hover:bg-gray-400 px-3 py-1 text-sm rounded"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+
       <NavTabs currentPage={page} setPage={setPage} />
 
-      {page === 'setup' && <Setup onInitialize={handleInitialize} />}
+      {page === 'setup' && user.role === 'admin' && (
+        <Setup onInitialize={handleInitialize} />
+      )}
       {page === 'groups' && (
-        <GroupStage groups={tournament.groups} onUpdate={handleMatchesUpdate} />
+        <GroupStage groups={tournament.groups} onUpdate={handleMatchesUpdate} user={user} />
       )}
       {page === 'standings' && <Standings groups={tournament.groups} />}
       {page === 'rankings' && <Rankings groups={tournament.groups} />}
-      <button
-  onClick={() => {
-    localStorage.clear();
-    setTournament({ groups: [] });
-    setPage('setup');
-  }}
-  className="mt-6 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700"
->
-  Reset Tournament
-</button>
+
+      {user.role === 'admin' && (
+        <button
+          onClick={() => {
+            localStorage.clear();
+            setTournament({ groups: [] });
+            setPage('setup');
+          }}
+          className="mt-6 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700"
+        >
+          Reset Tournament
+        </button>
+      )}
     </main>
   );
 }
@@ -89,7 +123,6 @@ function calculateStandings(groups, matches) {
 
   groups.forEach(group => {
     standingsObj[group.name] = {};
-
     group.teams.forEach(team => {
       standingsObj[group.name][team.id] = {
         team: team.name,
