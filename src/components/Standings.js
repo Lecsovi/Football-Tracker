@@ -1,6 +1,21 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 export default function Standings({ groups, matches }) {
+  const [teamNames, setTeamNames] = useState({});
+
+  useEffect(() => {
+    const loadNames = () => {
+      const names = JSON.parse(localStorage.getItem('tournament-team-names') || '{}');
+      setTeamNames(names);
+    };
+
+    loadNames();
+    window.addEventListener('storage', loadNames);
+    return () => window.removeEventListener('storage', loadNames);
+  }, []);
+
   return (
     <div className="space-y-10">
       {groups.map(group => (
@@ -24,7 +39,7 @@ export default function Standings({ groups, matches }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {sortGroupStandingsWithTiebreakers(group, matches).map(team => (
+                {sortGroupStandingsWithTiebreakers(group, matches, teamNames).map(team => (
                   <tr key={team.id} className="hover:bg-slate-50 transition">
                     <td className="px-3 py-2 font-medium text-gray-700">{team.team}</td>
                     <td className="px-3 py-2 text-center">{team.played}</td>
@@ -46,8 +61,12 @@ export default function Standings({ groups, matches }) {
   );
 }
 
-function sortGroupStandingsWithTiebreakers(group, matches) {
-  const standings = [...(group.standings || [])];
+function sortGroupStandingsWithTiebreakers(group, matches, teamNames) {
+  const standings = [...(group.standings || [])].map(team => ({
+    ...team,
+    team: teamNames[team.id] || team.team
+  }));
+
   const groupMatches = matches?.filter(m => m.group === group.name && m.goalsA !== '' && m.goalsB !== '') || [];
 
   standings.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);

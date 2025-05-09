@@ -8,12 +8,15 @@ const MATCHES_KEY = 'tournament-matches';
 export default function StandingsDisplay() {
   const [groups, setGroups] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [teamNames, setTeamNames] = useState({});
 
   useEffect(() => {
     const loadData = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       const savedMatches = localStorage.getItem(MATCHES_KEY);
-      const teamNames = JSON.parse(localStorage.getItem('tournament-team-names') || '{}');
+      const savedNames = localStorage.getItem('tournament-team-names');
+      const teamNames = savedNames ? JSON.parse(savedNames) : {};
+      setTeamNames(teamNames);
 
       if (saved && savedMatches) {
         const parsed = JSON.parse(saved);
@@ -37,7 +40,11 @@ export default function StandingsDisplay() {
 
     loadData();
     const interval = setInterval(loadData, 60000);
-    return () => clearInterval(interval);
+    window.addEventListener('storage', loadData);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', loadData);
+    };
   }, []);
 
   const sortGroupStandings = (teams, matches) => {
@@ -45,7 +52,6 @@ export default function StandingsDisplay() {
       if (b.points !== a.points) return b.points - a.points;
 
       const tiedIds = teams.filter(t => t.points === a.points).map(t => t.id);
-
       if (tiedIds.length > 1) {
         const miniTable = tiedIds.map(id => ({ id, points: 0 }));
 
