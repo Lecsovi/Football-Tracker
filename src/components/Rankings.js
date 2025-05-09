@@ -1,32 +1,72 @@
 'use client';
 
 export default function Rankings({ groups, matches }) {
-  if (!groups || groups.length === 0) return <p>No groups available.</p>;
+  if (!groups || groups.length === 0 || !matches) return <p>No groups available.</p>;
 
-  const sortedGroups = groups.map(group => {
-    const matchSubset = matches?.filter(m => m.group === group.name) || [];
-    return {
-      ...group,
-      standings: sortGroupStandings(group.standings || [], matchSubset)
-    };
-  });
+  const sortGroupStandings = (teams, matches) => {
+    const teamMap = {};
+    teams.forEach(team => { teamMap[team.id] = team; });
 
-  const groupRankings = sortedGroups.map(group => {
+    const sorted = [...teams].sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+
+      const tied = teams.filter(t => t.points === a.points).map(t => t.id);
+
+      if (tied.length > 1) {
+        const miniTable = {};
+        tied.forEach(id => {
+          miniTable[id] = { id, points: 0 };
+        });
+
+        matches.forEach(match => {
+          const aId = match.teamA.id;
+          const bId = match.teamB.id;
+          if (!tied.includes(aId) || !tied.includes(bId)) return;
+
+          const gA = parseInt(match.goalsA);
+          const gB = parseInt(match.goalsB);
+          if (isNaN(gA) || isNaN(gB)) return;
+
+          if (gA > gB) miniTable[aId].points += 3;
+          else if (gA < gB) miniTable[bId].points += 3;
+          else {
+            miniTable[aId].points += 1;
+            miniTable[bId].points += 1;
+          }
+        });
+
+        const aPts = miniTable[a.id]?.points || 0;
+        const bPts = miniTable[b.id]?.points || 0;
+        if (bPts !== aPts) return bPts - aPts;
+      }
+
+      return b.gd - a.gd || b.gf - a.gf;
+    });
+
+    return sorted;
+  };
+
+  const groupRankings = groups.map(group => {
+    const groupMatches = matches.filter(m => m.group === group.name);
+    const sorted = sortGroupStandings(group.standings || [], groupMatches);
     return {
       group: group.name,
-      first: group.standings?.[0],
-      second: group.standings?.[1],
-      third: group.standings?.[2],
-      fourth: group.standings?.[3],
+      first: sorted[0],
+      second: sorted[1],
+      third: sorted[2],
+      fourth: sorted[3]
     };
   });
 
   const groupCount = groupRankings.length;
 
-  const firsts = groupRankings.map(g => g.first).filter(Boolean);
-  const seconds = groupRankings.map(g => g.second).filter(Boolean);
-  const thirds = groupRankings.map(g => g.third).filter(Boolean);
-  const fourths = groupRankings.map(g => g.fourth).filter(Boolean);
+  const extractRanked = (rank) =>
+    groupRankings.map(g => g[rank]).filter(Boolean);
+
+  const firsts = extractRanked('first');
+  const seconds = extractRanked('second');
+  const thirds = extractRanked('third');
+  const fourths = extractRanked('fourth');
 
   const seeded = [...firsts];
   const nonSeeded = [];
@@ -96,7 +136,7 @@ function RankingBlock({ title, teams }) {
           </tr>
         </thead>
         <tbody>
-          {teams.map(team => (
+          {teams.sort(compareTeams).map(team => (
             <tr key={team.id}>
               <td className="p-1">{team.team}</td>
               <td>{team.played}</td>
@@ -115,41 +155,6 @@ function RankingBlock({ title, teams }) {
   );
 }
 
-function sortGroupStandings(teams, matches) {
-  return [...teams].sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-
-    const tied = teams.filter(t => t.points === a.points);
-    const tiedIds = tied.map(t => t.id);
-
-    if (tiedIds.length > 1) {
-      const miniTable = tied.map(t => ({ id: t.id, points: 0 }));
-
-      matches.forEach(match => {
-        if (!tiedIds.includes(match.teamA.id) || !tiedIds.includes(match.teamB.id)) return;
-        const aEntry = miniTable.find(t => t.id === match.teamA.id);
-        const bEntry = miniTable.find(t => t.id === match.teamB.id);
-        const gA = parseInt(match.goalsA);
-        const gB = parseInt(match.goalsB);
-        if (isNaN(gA) || isNaN(gB)) return;
-
-        if (gA > gB) aEntry.points += 3;
-        else if (gA < gB) bEntry.points += 3;
-        else {
-          aEntry.points += 1;
-          bEntry.points += 1;
-        }
-      });
-
-      const aPoints = miniTable.find(t => t.id === a.id)?.points || 0;
-      const bPoints = miniTable.find(t => t.id === b.id)?.points || 0;
-      if (bPoints !== aPoints) return bPoints - aPoints;
-    }
-
-    return b.gd - a.gd || b.gf - a.gf;
-
-    function compareTeams(a, b) {
+function compareTeams(a, b) {
   return b.points - a.points || b.gd - a.gd || b.gf - a.gf;
-}
-  });
 }
