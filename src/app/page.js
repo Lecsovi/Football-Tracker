@@ -134,12 +134,15 @@ export default function Home() {
 
 function calculateStandings(groups, matches) {
   const standingsObj = {};
+  const teamNames = JSON.parse(localStorage.getItem('tournament-team-names') || '{}');
 
   groups.forEach(group => {
     standingsObj[group.name] = {};
+
     group.teams.forEach(team => {
+      const nameFromSetup = teamNames[team.id] || team.name;
       standingsObj[group.name][team.id] = {
-        team: team.name,
+        team: nameFromSetup,
         id: team.id,
         played: 0,
         won: 0,

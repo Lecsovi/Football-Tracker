@@ -13,6 +13,7 @@ export default function StandingsDisplay() {
     const loadData = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       const savedMatches = localStorage.getItem(MATCHES_KEY);
+      const teamNames = JSON.parse(localStorage.getItem('tournament-team-names') || '{}');
 
       if (saved && savedMatches) {
         const parsed = JSON.parse(saved);
@@ -20,7 +21,11 @@ export default function StandingsDisplay() {
         setMatches(parsedMatches);
 
         const sortedGroups = parsed.groups.map(group => {
-          const standings = [...(group.standings || [])];
+          const standings = [...(group.standings || [])].map(team => ({
+            ...team,
+            team: teamNames[team.id] || team.team
+          }));
+
           const matchSubset = parsedMatches.filter(m => m.group === group.name);
           const sorted = sortGroupStandings(standings, matchSubset);
           return { ...group, standings: sorted };
@@ -31,7 +36,7 @@ export default function StandingsDisplay() {
     };
 
     loadData();
-    const interval = setInterval(loadData, 60000); // Refresh every minute
+    const interval = setInterval(loadData, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -39,15 +44,10 @@ export default function StandingsDisplay() {
     return [...teams].sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
 
-      const tiedIds = teams
-        .filter(t => t.points === a.points)
-        .map(t => t.id);
+      const tiedIds = teams.filter(t => t.points === a.points).map(t => t.id);
 
       if (tiedIds.length > 1) {
-        const miniTable = tiedIds.map(id => ({
-          id,
-          points: 0
-        }));
+        const miniTable = tiedIds.map(id => ({ id, points: 0 }));
 
         matches.forEach(match => {
           if (!tiedIds.includes(match.teamA.id) || !tiedIds.includes(match.teamB.id)) return;

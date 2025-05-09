@@ -3,6 +3,8 @@
 export default function Rankings({ groups }) {
   if (!groups || groups.length === 0) return <p>No groups available.</p>;
 
+  const teamNames = JSON.parse(localStorage.getItem('tournament-team-names') || '{}');
+
   const groupRankings = groups.map(group => {
     const sorted = [...(group.standings || [])].sort(compareTeams);
     return {
@@ -21,11 +23,9 @@ export default function Rankings({ groups }) {
   const thirds = groupRankings.map(g => g.third).filter(Boolean);
   const fourths = groupRankings.map(g => g.fourth).filter(Boolean);
 
-  // ✅ Always seeded: 1st place teams
   const seeded = [...firsts];
   const nonSeeded = [];
 
-  // ⚙️ Add others based on rules
   if (groupCount >= 12) {
     nonSeeded.push(...seconds, ...thirds.sort(compareTeams).slice(0, 8));
   } else if (groupCount === 11) {
@@ -48,10 +48,10 @@ export default function Rankings({ groups }) {
 
   return (
     <div className="space-y-6">
-      <RankingBlock title="1st Placed Teams" teams={firsts} />
-      <RankingBlock title="2nd Placed Teams" teams={seconds} />
-      {thirds.length > 0 && <RankingBlock title="3rd Placed Teams" teams={thirds} />}
-      {fourths.length > 0 && <RankingBlock title="4th Placed Teams" teams={fourths} />}
+      <RankingBlock title="1st Placed Teams" teams={firsts} teamNames={teamNames} />
+      <RankingBlock title="2nd Placed Teams" teams={seconds} teamNames={teamNames} />
+      {thirds.length > 0 && <RankingBlock title="3rd Placed Teams" teams={thirds} teamNames={teamNames} />}
+      {fourths.length > 0 && <RankingBlock title="4th Placed Teams" teams={fourths} teamNames={teamNames} />}
 
       <div>
         <h2 className="text-xl font-bold mb-2">Knockout Stage Seeding</h2>
@@ -60,7 +60,7 @@ export default function Rankings({ groups }) {
             <h3 className="font-semibold">Seeded</h3>
             <ul className="list-disc list-inside">
               {seeded.map(team => (
-                <li key={team.id}>{team.team}</li>
+                <li key={team.id}>{teamNames[team.id] || team.team}</li>
               ))}
             </ul>
           </div>
@@ -68,7 +68,7 @@ export default function Rankings({ groups }) {
             <h3 className="font-semibold">Non-Seeded</h3>
             <ul className="list-disc list-inside">
               {nonSeeded.map(team => (
-                <li key={team.id}>{team.team}</li>
+                <li key={team.id}>{teamNames[team.id] || team.team}</li>
               ))}
             </ul>
           </div>
@@ -78,7 +78,7 @@ export default function Rankings({ groups }) {
   );
 }
 
-function RankingBlock({ title, teams }) {
+function RankingBlock({ title, teams, teamNames }) {
   return (
     <div>
       <h2 className="text-xl font-bold mb-2">{title}</h2>
@@ -93,7 +93,7 @@ function RankingBlock({ title, teams }) {
         <tbody>
           {teams.sort(compareTeams).map(team => (
             <tr key={team.id}>
-              <td className="p-1">{team.team}</td>
+              <td className="p-1">{teamNames[team.id] || team.team}</td>
               <td>{team.played}</td>
               <td>{team.won}</td>
               <td>{team.drawn}</td>

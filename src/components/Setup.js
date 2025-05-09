@@ -59,7 +59,7 @@ export default function Setup({ onInitialize }) {
     });
 
     if (typeof window !== 'undefined') {
-      localStorage.setItem(SETUP_KEY, JSON.stringify(groupsConfig));
+      localStorage.setItem('tournament-team-names', JSON.stringify(teamNames));
     }
 
     onInitialize(groupsConfig);
