@@ -7,9 +7,7 @@ import GroupStage from '../components/GroupStage';
 import Standings from '../components/Standings';
 import Rankings from '../components/Rankings';
 import Login from '../components/Login';
-
-const STORAGE_KEY = 'tournament-data';
-const MATCHES_KEY = 'tournament-matches';
+import { saveTournamentData, loadTournamentData } from '../lib/firestore';
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -17,32 +15,32 @@ export default function Home() {
   const [tournament, setTournament] = useState({ groups: [] });
   const [matches, setMatches] = useState([]);
 
-  // Load tournament and matches from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const savedMatches = localStorage.getItem(MATCHES_KEY);
-    if (saved) {
-      setTournament(JSON.parse(saved));
-      setPage('groups');
-    }
-    if (savedMatches) {
-      setMatches(JSON.parse(savedMatches));
-    }
+    const fetchData = async () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+
+        const firebaseData = await loadTournamentData(parsedUser.username);
+        if (firebaseData) {
+          setTournament(firebaseData.tournament || { groups: [] });
+          setMatches(firebaseData.matches || []);
+          setPage('groups');
+        }
+      }
+    };
+    fetchData();
   }, []);
 
-  // Save tournament whenever it changes
   useEffect(() => {
-    if (tournament.groups.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tournament));
+    if (user) {
+      saveTournamentData(user.username, {
+        tournament,
+        matches,
+      });
     }
-  }, [tournament]);
-
-  // Save matches whenever they change
-  useEffect(() => {
-    if (matches.length > 0) {
-      localStorage.setItem(MATCHES_KEY, JSON.stringify(matches));
-    }
-  }, [matches]);
+  }, [tournament, matches, user]);
 
   const handleInitialize = (groupsConfig) => {
     const groups = groupsConfig.map((g) => ({
@@ -54,8 +52,7 @@ export default function Home() {
     }));
 
     setTournament({ groups });
-    setMatches([]); // Clear matches on new setup
-    localStorage.removeItem(MATCHES_KEY); // Clear old matches
+    setMatches([]);
     setPage('groups');
   };
 
@@ -65,7 +62,7 @@ export default function Home() {
     const standings = calculateStandings(tournament.groups, updatedMatches);
     const updatedGroups = tournament.groups.map(group => ({
       ...group,
-      standings: Object.values(standings[group.name] || [])
+      standings: Object.values(standings[group.name] || []),
     }));
     setTournament({ groups: updatedGroups });
   };
@@ -112,37 +109,33 @@ export default function Home() {
       {page === 'standings' && (
         <Standings groups={tournament.groups} matches={matches} />
       )}
-      {page === 'rankings' && <Rankings groups={tournament.groups} matches={matches} />}
+      {page === 'rankings' && (
+        <Rankings groups={tournament.groups} matches={matches} />
+      )}
 
       {user.role === 'admin' && (
-  <div className="mt-6 space-y-4">
-    <button
-      onClick={() => {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(MATCHES_KEY);
-        setTournament({ groups: [] });
-        setMatches([]);
-        setPage('setup');
-      }}
-      className="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700"
-    >
-      Reset Tournament
-    </button>
-
-    <button
-      onClick={() => {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(MATCHES_KEY);
-        localStorage.removeItem('user');
-        localStorage.removeItem('tournament-team-names');
-        window.location.reload();
-      }}
-      className="bg-orange-600 text-white px-4 py-2 rounded shadow hover:bg-orange-700"
-    >
-      Clear All Data
-    </button>
-  </div>
-)}
+        <div className="mt-6 space-y-4">
+          <button
+            onClick={() => {
+              setTournament({ groups: [] });
+              setMatches([]);
+              setPage('setup');
+            }}
+            className="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700"
+          >
+            Reset Tournament
+          </button>
+          <button
+            onClick={() => {
+              localStorage.clear();
+              window.location.reload();
+            }}
+            className="bg-orange-600 text-white px-4 py-2 rounded shadow hover:bg-orange-700"
+          >
+            Clear All Local Data
+          </button>
+        </div>
+      )}
     </main>
   );
 }
@@ -153,11 +146,9 @@ function calculateStandings(groups, matches) {
 
   groups.forEach(group => {
     standingsObj[group.name] = {};
-
     group.teams.forEach(team => {
-      const nameFromSetup = teamNames[team.id] || team.name;
       standingsObj[group.name][team.id] = {
-        team: nameFromSetup,
+        team: teamNames[team.id] || team.name,
         id: team.id,
         played: 0,
         won: 0,
@@ -176,8 +167,6 @@ function calculateStandings(groups, matches) {
     if (goalsA === '' || goalsB === '') return;
 
     const groupStandings = standingsObj[group];
-    if (!groupStandings) return;
-
     const a = groupStandings[teamA?.id];
     const b = groupStandings[teamB?.id];
     if (!a || !b) return;
@@ -188,7 +177,8 @@ function calculateStandings(groups, matches) {
     a.played++; b.played++;
     a.gf += gA; a.ga += gB;
     b.gf += gB; b.ga += gA;
-    a.gd = a.gf - a.ga; b.gd = b.gf - b.ga;
+    a.gd = a.gf - a.ga;
+    b.gd = b.gf - b.ga;
 
     if (gA > gB) { a.won++; b.lost++; a.points += 3; }
     else if (gA < gB) { b.won++; a.lost++; b.points += 3; }
