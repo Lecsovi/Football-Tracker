@@ -1,50 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-const STORAGE_KEY = 'tournament-data';
-const MATCHES_KEY = 'tournament-matches';
+import { loadTournamentData } from '../lib/firestore';
 
 export default function StandingsDisplay() {
   const [groups, setGroups] = useState([]);
   const [matches, setMatches] = useState([]);
-  const [teamNames, setTeamNames] = useState({});
 
   useEffect(() => {
-    const loadData = () => {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      const savedMatches = localStorage.getItem(MATCHES_KEY);
-      const savedNames = localStorage.getItem('tournament-team-names');
-      const teamNames = savedNames ? JSON.parse(savedNames) : {};
-      setTeamNames(teamNames);
-
-      if (saved && savedMatches) {
-        const parsed = JSON.parse(saved);
-        const parsedMatches = JSON.parse(savedMatches);
-        setMatches(parsedMatches);
-
-        const sortedGroups = parsed.groups.map(group => {
-          const standings = [...(group.standings || [])].map(team => ({
-            ...team,
-            team: teamNames[team.id] || team.team
-          }));
-
-          const matchSubset = parsedMatches.filter(m => m.group === group.name);
-          const sorted = sortGroupStandings(standings, matchSubset);
-          return { ...group, standings: sorted };
-        });
-
-        setGroups(sortedGroups);
+    const fetchData = async () => {
+      const username = Lecsovi; // Replace with the actual admin username
+      const data = await loadTournamentData(username);
+      if (data) {
+        setGroups(data.tournament.groups || []);
+        setMatches(data.matches || []);
       }
     };
 
-    loadData();
-    const interval = setInterval(loadData, 60000);
-    window.addEventListener('storage', loadData);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', loadData);
-    };
+    fetchData();
   }, []);
 
   const sortGroupStandings = (teams, matches) => {
