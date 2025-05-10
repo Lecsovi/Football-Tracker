@@ -24,10 +24,8 @@ export default function StandingsDisplay() {
     };
 
     fetchData();
-
-     const interval = setInterval(fetchData, 60000); // Refresh every 60 seconds
-
-  return () => clearInterval(interval);
+    const interval = setInterval(fetchData, 60000); // Refresh every 60 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const sortGroupStandingsWithTiebreakers = (group, allMatches) => {
@@ -100,14 +98,14 @@ export default function StandingsDisplay() {
       <h1 className="text-4xl font-bold text-center mb-6">Live Standings Display</h1>
 
       {groupChunks.map((chunk, rowIndex) => (
-        <div key={rowIndex} className="flex w-full">
+        <div key={rowIndex} className="flex flex-col lg:flex-row gap-6 w-full mb-6">
           {chunk.map(group => (
             <div
               key={group.name}
-              className="w-1/4 bg-white p-4 border-r last:border-r-0 border-gray-300 shadow-sm"
+              className="flex-1 bg-white p-4 rounded border border-gray-300 shadow-sm overflow-x-auto"
             >
               <h2 className="text-xl font-bold text-center mb-3">Group {group.name}</h2>
-              <table className="w-full border-collapse text-sm table-fixed">
+              <table className="min-w-full border-collapse text-sm table-fixed">
                 <thead>
                   <tr className="bg-gray-200">
                     <th className="w-[9rem] text-center px-2 py-2">Team</th>
@@ -134,7 +132,7 @@ export default function StandingsDisplay() {
                       <td>{team.gf}</td>
                       <td>{team.ga}</td>
                       <td>{team.gd}</td>
-                      <td>{team.points}</td>
+                      <td className="font-semibold text-blue-700">{team.points}</td>
                     </tr>
                   ))}
                 </tbody>
