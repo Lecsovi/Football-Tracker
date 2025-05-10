@@ -9,11 +9,15 @@ import Rankings from '../components/Rankings';
 import Login from '../components/Login';
 import { saveTournamentData, loadTournamentData } from '../lib/firestore';
 
+const STORAGE_KEY = 'tournament-data';
+const MATCHES_KEY = 'tournament-matches';
+
 export default function Home() {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState('setup');
   const [tournament, setTournament] = useState({ groups: [] });
   const [matches, setMatches] = useState([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -27,18 +31,28 @@ export default function Home() {
           setTournament(firebaseData.tournament || { groups: [] });
           setMatches(firebaseData.matches || []);
           setPage('groups');
+        } else {
+          const localTournament = localStorage.getItem(STORAGE_KEY);
+          const localMatches = localStorage.getItem(MATCHES_KEY);
+          if (localTournament) {
+            setTournament(JSON.parse(localTournament));
+            setPage('groups');
+          }
+          if (localMatches) {
+            setMatches(JSON.parse(localMatches));
+          }
         }
       }
+      setDataLoaded(true);
     };
     fetchData();
   }, []);
 
   useEffect(() => {
     if (user) {
-      saveTournamentData(user.username, {
-        tournament,
-        matches,
-      });
+      saveTournamentData(user.username, { tournament, matches });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tournament));
+      localStorage.setItem(MATCHES_KEY, JSON.stringify(matches));
     }
   }, [tournament, matches, user]);
 
@@ -62,7 +76,7 @@ export default function Home() {
     const standings = calculateStandings(tournament.groups, updatedMatches);
     const updatedGroups = tournament.groups.map(group => ({
       ...group,
-      standings: Object.values(standings[group.name] || []),
+      standings: Object.values(standings[group.name] || [])
     }));
     setTournament({ groups: updatedGroups });
   };
@@ -76,6 +90,7 @@ export default function Home() {
   };
 
   if (!user) return <Login onLogin={setUser} />;
+  if (!dataLoaded) return <p className="p-4 text-center">Loading tournament...</p>;
 
   return (
     <main>
@@ -99,17 +114,20 @@ export default function Home() {
       {page === 'setup' && user.role === 'admin' && (
         <Setup onInitialize={handleInitialize} />
       )}
-      {page === 'groups' && (
+
+      {page === 'groups' && tournament.groups.length > 0 && (
         <GroupStage
           groups={tournament.groups}
           onUpdate={handleMatchesUpdate}
           user={user}
         />
       )}
-      {page === 'standings' && (
+
+      {page === 'standings' && tournament.groups.length > 0 && (
         <Standings groups={tournament.groups} matches={matches} />
       )}
-      {page === 'rankings' && (
+
+      {page === 'rankings' && tournament.groups.length > 0 && (
         <Rankings groups={tournament.groups} matches={matches} />
       )}
 
