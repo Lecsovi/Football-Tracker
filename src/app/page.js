@@ -14,8 +14,8 @@ export default function Home() {
   const [page, setPage] = useState('setup');
   const [tournament, setTournament] = useState({ groups: [] });
   const [matches, setMatches] = useState([]);
+  const [isLoading, setIsLoading] = useState(true); // New state to track loading
 
-  // Load user and tournament data on first render
   useEffect(() => {
     const fetchData = async () => {
       const storedUser = localStorage.getItem('user');
@@ -30,11 +30,11 @@ export default function Home() {
           setPage('groups');
         }
       }
+      setIsLoading(false); // Set loading to false after data is fetched
     };
     fetchData();
   }, []);
 
-  // Persist tournament and match data to Firestore
   useEffect(() => {
     if (user) {
       saveTournamentData(user.username, {
@@ -76,6 +76,10 @@ export default function Home() {
     setMatches([]);
     setPage('setup');
   };
+
+  if (isLoading) {
+    return <div>Loading...</div>; // Show loading indicator while data is being fetched
+  }
 
   if (!user) return <Login onLogin={setUser} />;
 
