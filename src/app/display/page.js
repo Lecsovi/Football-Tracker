@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { loadTournamentData } from '../lib/firestore';
+import { loadTournamentData } from '@/lib/firestore';
 
 export default function StandingsDisplay() {
   const [groups, setGroups] = useState([]);
