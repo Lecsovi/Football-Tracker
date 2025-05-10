@@ -2,54 +2,83 @@
 
 import { useEffect, useState } from 'react';
 import { loadTournamentData } from '@/lib/firestore';
-import { getNamedMiddlewareRegex } from 'next/dist/shared/lib/router/utils/route-regex';
 
 export default function StandingsDisplay() {
   const [groups, setGroups] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [teamNames, setTeamNames] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
-      const username = 'Lecsovi'; // Replace with the actual admin username
+      const username = 'Lecsovi'; // Replace with actual username/document ID
       const data = await loadTournamentData(username);
       if (data) {
         setGroups(data.tournament.groups || []);
         setMatches(data.matches || []);
+      }
+
+      const storedNames = localStorage.getItem('tournament-team-names');
+      if (storedNames) {
+        setTeamNames(JSON.parse(storedNames));
       }
     };
 
     fetchData();
   }, []);
 
-  const sortGroupStandings = (teams, matches) => {
-    return [...teams].sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
+  const sortGroupStandingsWithTiebreakers = (group, allMatches) => {
+    const standings = [...(group.standings || [])].map(team => ({
+      ...team,
+      team: teamNames[team.id] || team.team,
+    }));
 
-      const tiedIds = teams.filter(t => t.points === a.points).map(t => t.id);
-      if (tiedIds.length > 1) {
-        const miniTable = tiedIds.map(id => ({ id, points: 0 }));
+    const groupMatches = allMatches?.filter(
+      m => m.group === group.name && m.goalsA !== '' && m.goalsB !== ''
+    ) || [];
 
-        matches.forEach(match => {
-          if (!tiedIds.includes(match.teamA.id) || !tiedIds.includes(match.teamB.id)) return;
-          const a = miniTable.find(t => t.id === match.teamA.id);
-          const b = miniTable.find(t => t.id === match.teamB.id);
-          const gA = parseInt(match.goalsA);
-          const gB = parseInt(match.goalsB);
-          if (isNaN(gA) || isNaN(gB)) return;
+    standings.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
 
-          if (gA > gB) a.points += 3;
-          else if (gA < gB) b.points += 3;
-          else { a.points += 1; b.points += 1; }
+    let i = 0;
+    while (i < standings.length) {
+      let j = i + 1;
+      while (j < standings.length && standings[j].points === standings[i].points) j++;
+
+      if (j - i > 1) {
+        const tied = standings.slice(i, j);
+        const ids = new Set(tied.map(t => t.id));
+        const h2hMatches = groupMatches.filter(
+          m => ids.has(m.teamA.id) && ids.has(m.teamB.id)
+        );
+
+        const h2hStats = {};
+        tied.forEach(t => {
+          h2hStats[t.id] = { id: t.id, team: t.team, points: 0 };
         });
 
-        const aHead = miniTable.find(t => t.id === a.id)?.points || 0;
-        const bHead = miniTable.find(t => t.id === b.id)?.points || 0;
+        h2hMatches.forEach(m => {
+          const gA = parseInt(m.goalsA);
+          const gB = parseInt(m.goalsB);
+          if (gA > gB) h2hStats[m.teamA.id].points += 3;
+          else if (gA < gB) h2hStats[m.teamB.id].points += 3;
+          else {
+            h2hStats[m.teamA.id].points += 1;
+            h2hStats[m.teamB.id].points += 1;
+          }
+        });
 
-        if (bHead !== aHead) return bHead - aHead;
+        const ranked = [...tied].sort((a, b) =>
+          h2hStats[b.id].points - h2hStats[a.id].points ||
+          b.gd - a.gd ||
+          b.gf - a.gf
+        );
+
+        standings.splice(i, j - i, ...ranked);
       }
 
-      return b.gd - a.gd || b.gf - a.gf;
-    });
+      i = j;
+    }
+
+    return standings;
   };
 
   const chunkArray = (arr, size) => {
@@ -89,7 +118,7 @@ export default function StandingsDisplay() {
                   </tr>
                 </thead>
                 <tbody>
-                  {group.standings?.map(team => (
+                  {sortGroupStandingsWithTiebreakers(group, matches).map(team => (
                     <tr key={team.id} className="h-[3rem] text-center">
                       <td className="text-center align-middle px-2 font-medium truncate">
                         {team.team}
