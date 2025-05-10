@@ -45,11 +45,11 @@ export default function Setup({ onInitialize }) {
 
   const handleTeamNameChange = (id, name) => {
     setTeamNames(prev => {
-  const updated = { ...prev, [id]: name };
-  localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(updated));
-  return updated;
-});
-
+      const updated = { ...prev, [id]: name };
+      localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const handleStart = () => {
     const groupsConfig = Array.from({ length: groupCount }, (_, i) => {
@@ -57,7 +57,7 @@ export default function Setup({ onInitialize }) {
       const size = groupSizes[letter] ?? 4;
       const teams = Array.from({ length: size }, (_, idx) => {
         const id = `${letter}${idx + 1}`;
-        return teamNames[id] || `Team ${id}`;
+        return (teamNames[id]?.trim()) || `Team ${id}`;
       });
       return { letter, size, teams };
     });
@@ -139,4 +139,4 @@ export default function Setup({ onInitialize }) {
       </div>
     </div>
   );
-}}
+}
