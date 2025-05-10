@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { saveTournamentData, loadTournamentData } from '../lib/firestore'; // ✅ Firestore functions
 
 const SETUP_KEY = 'tournament-setup';
 const TEAM_NAMES_KEY = 'tournament-team-names';
@@ -29,6 +30,17 @@ export default function Setup({ onInitialize }) {
 
       if (savedNames) {
         setTeamNames(JSON.parse(savedNames));
+      } else {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          loadTournamentData(parsedUser.username).then((data) => {
+            if (data?.teamNames) {
+              setTeamNames(data.teamNames);
+              localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(data.teamNames));
+            }
+          });
+        }
       }
     }
   }, []);
@@ -43,14 +55,22 @@ export default function Setup({ onInitialize }) {
     }));
   };
 
-  const handleTeamNameChange = (id, name) => {
-    const trimmed = name.trim();
-    setTeamNames(prev => {
-      const updated = { ...prev, [id]: trimmed };
-      localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  };
+const handleTeamNameChange = (id, name) => {
+  const trimmed = name.trim();
+  setTeamNames(prev => {
+    const updated = { ...prev, [id]: trimmed };
+    localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(updated));
+
+    // Save to Firestore as well
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const { username } = JSON.parse(storedUser);
+      saveTournamentData(username, { teamNames: updated });
+    }
+
+    return updated;
+  });
+};
 
   const handleStart = () => {
     const groupsConfig = Array.from({ length: groupCount }, (_, i) => {

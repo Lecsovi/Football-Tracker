@@ -1,20 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { loadTournamentData } from '@/lib/firestore'; // 🔥 Firestore integration
 
 export default function Standings({ groups, matches }) {
   const [teamNames, setTeamNames] = useState({});
+  const [remoteTeamNames, setRemoteTeamNames] = useState({});
 
   useEffect(() => {
-    const loadNames = () => {
-      const names = JSON.parse(localStorage.getItem('tournament-team-names') || '{}');
-      setTeamNames(names);
-    };
+  const fetchTeamNames = async () => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const { username } = JSON.parse(storedUser);
+      const data = await loadTournamentData(username);
+      if (data?.teamNames) {
+        localStorage.setItem('tournament-team-names', JSON.stringify(data.teamNames));
+        setTeamNames(data.teamNames);
+      }
+    }
+  };
 
-    loadNames();
-    window.addEventListener('storage', loadNames);
-    return () => window.removeEventListener('storage', loadNames);
-  }, []);
+  fetchTeamNames();
+  window.addEventListener('storage', fetchTeamNames);
+  return () => window.removeEventListener('storage', fetchTeamNames);
+}, []);
+
+  const allTeamNames = { ...remoteTeamNames, ...teamNames }; // Remote takes priority
 
   return (
     <div className="space-y-10">
@@ -39,7 +50,7 @@ export default function Standings({ groups, matches }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {sortGroupStandingsWithTiebreakers(group, matches, teamNames).map(team => (
+                {sortGroupStandingsWithTiebreakers(group, matches, allTeamNames).map(team => (
                   <tr key={team.id} className="hover:bg-slate-50 transition">
                     <td className="px-3 py-2 font-medium text-gray-700">{team.team}</td>
                     <td className="px-3 py-2 text-center">{team.played}</td>
@@ -89,7 +100,6 @@ function sortGroupStandingsWithTiebreakers(group, matches, teamNames) {
       h2hMatches.forEach(m => {
         const gA = parseInt(m.goalsA);
         const gB = parseInt(m.goalsB);
-
         if (gA > gB) h2hStats[m.teamA.id].points += 3;
         else if (gA < gB) h2hStats[m.teamB.id].points += 3;
         else {
