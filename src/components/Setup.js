@@ -44,13 +44,12 @@ export default function Setup({ onInitialize }) {
   };
 
   const handleTeamNameChange = (id, name) => {
-    const trimmed = name.trim();
     setTeamNames(prev => {
-      const updated = { ...prev, [id]: trimmed };
-      localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  };
+  const updated = { ...prev, [id]: name };
+  localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(updated));
+  return updated;
+});
+
 
   const handleStart = () => {
     const groupsConfig = Array.from({ length: groupCount }, (_, i) => {
@@ -140,4 +139,4 @@ export default function Setup({ onInitialize }) {
       </div>
     </div>
   );
-}
+}}
