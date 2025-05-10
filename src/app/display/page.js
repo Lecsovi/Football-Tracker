@@ -10,7 +10,7 @@ export default function StandingsDisplay() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const username = 'lecsovi13@gmail.com'; // Replace with the actual admin username
+      const username = 'Lecsovi'; // Replace with the actual admin username
       const data = await loadTournamentData(username);
       if (data) {
         setGroups(data.tournament.groups || []);
