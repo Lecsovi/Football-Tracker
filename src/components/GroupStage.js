@@ -16,19 +16,19 @@ export default function GroupStage({ groups, onUpdate, user }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const handleScroll = () => {
-      setShowTopButton(window.scrollY > 300);
-    };
-
+    const handleScroll = () => setShowTopButton(window.scrollY > 300);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const fixtureTemplates = {
-    4: [['A1','A2'], ['A3','A4'], ['A1','A3'], ['A2','A4'], ['A1','A4'], ['A2','A3']],
-    5: [['A1','A2'], ['A3','A4'], ['A1','A5'], ['A2','A4'], ['A3','A5'], ['A1','A4'], ['A2','A3'], ['A4','A5'], ['A1','A3'], ['A2','A5']],
-    6: [['A1','A2'], ['A3','A4'], ['A5','A6'], ['A1','A4'], ['A2','A6'], ['A3','A5'], ['A1','A6'], ['A4','A5'], ['A2','A3'], ['A1','A5'], ['A6','A3'], ['A4','A2'], ['A1','A3'], ['A5','A2'], ['A6','A4']]
+  const generateRoundRobinFixtures = (teams) => {
+    const matches = [];
+    for (let i = 0; i < teams.length; i++) {
+      for (let j = i + 1; j < teams.length; j++) {
+        matches.push([teams[i], teams[j]]);
+      }
+    }
+    return matches;
   };
 
   useEffect(() => {
@@ -44,31 +44,17 @@ export default function GroupStage({ groups, onUpdate, user }) {
     const generated = [];
 
     groups.forEach(group => {
-      const size = group.teams.length;
-      const template = fixtureTemplates[size];
       const groupLetter = group.name;
-      if (!template) return;
-
-      const teamMap = {};
-      group.teams.forEach((team, i) => {
-        teamMap[`${groupLetter}${i + 1}`] = team;
-      });
-
-      template.forEach(([home, away], idx) => {
-        const homeId = home.replace('A', groupLetter);
-        const awayId = away.replace('A', groupLetter);
-        const teamA = teamMap[homeId];
-        const teamB = teamMap[awayId];
-        if (teamA && teamB) {
-          generated.push({
-            id: `${groupLetter}-${idx}`,
-            group: groupLetter,
-            teamA,
-            teamB,
-            goalsA: '',
-            goalsB: ''
-          });
-        }
+      const fixtures = generateRoundRobinFixtures(group.teams);
+      fixtures.forEach(([teamA, teamB], idx) => {
+        generated.push({
+          id: `${groupLetter}-${idx}`,
+          group: groupLetter,
+          teamA,
+          teamB,
+          goalsA: '',
+          goalsB: ''
+        });
       });
     });
 
