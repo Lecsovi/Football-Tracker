@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { loadTournamentData } from '@/lib/firestore';
+import { getNamedMiddlewareRegex } from 'next/dist/shared/lib/router/utils/route-regex';
 
 export default function StandingsDisplay() {
   const [groups, setGroups] = useState([]);
@@ -9,7 +10,7 @@ export default function StandingsDisplay() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const username = Lecsovi; // Replace with the actual admin username
+      const username = 'lecsovi13@gmail.com'; // Replace with the actual admin username
       const data = await loadTournamentData(username);
       if (data) {
         setGroups(data.tournament.groups || []);
