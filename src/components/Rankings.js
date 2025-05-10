@@ -1,23 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { loadTournamentData } from '@/lib/firestore';
 
 export default function Rankings({ groups, matches }) {
   const [teamNames, setTeamNames] = useState({});
 
   useEffect(() => {
-    const fetchNames = async () => {
-      const data = await loadTournamentData('Lecsovi');
-      if (data?.teamNames) {
-        setTeamNames(data.teamNames);
-      } else {
-        const localNames = localStorage.getItem('tournament-team-names');
-        setTeamNames(localNames ? JSON.parse(localNames) : {});
-      }
+    const loadTeamNames = () => {
+      const stored = localStorage.getItem('tournament-team-names');
+      setTeamNames(stored ? JSON.parse(stored) : {});
     };
 
-    fetchNames();
+    loadTeamNames();
+
+    window.addEventListener('storage', loadTeamNames);
+    return () => window.removeEventListener('storage', loadTeamNames);
   }, []);
 
   if (!groups || groups.length === 0 || !matches) return <p>No groups available.</p>;
@@ -26,14 +23,16 @@ export default function Rankings({ groups, matches }) {
     const teamMap = {};
     teams.forEach(team => { teamMap[team.id] = team; });
 
-    return [...teams].sort((a, b) => {
+    const sorted = [...teams].sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
 
       const tied = teams.filter(t => t.points === a.points).map(t => t.id);
 
       if (tied.length > 1) {
         const miniTable = {};
-        tied.forEach(id => { miniTable[id] = { id, points: 0 }; });
+        tied.forEach(id => {
+          miniTable[id] = { id, points: 0 };
+        });
 
         matches.forEach(match => {
           const aId = match.teamA.id;
@@ -59,6 +58,8 @@ export default function Rankings({ groups, matches }) {
 
       return b.gd - a.gd || b.gf - a.gf;
     });
+
+    return sorted;
   };
 
   const groupRankings = groups.map(group => {

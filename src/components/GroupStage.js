@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import useClientReady from '../hooks/useClientReady';
-import { loadTournamentData, saveTournamentData } from '../lib/firestore'; // 🔥 Added Firestore sync
 
 const MATCHES_KEY = 'tournament-matches';
 
@@ -35,95 +34,53 @@ export default function GroupStage({ groups, onUpdate, user }) {
   useEffect(() => {
     if (!isClientReady || initialized || !groups.length) return;
 
-    const fetchOrGenerateMatches = async () => {
-      const storedUser = localStorage.getItem('user');
-      const saved = localStorage.getItem(MATCHES_KEY);
+    const saved = localStorage.getItem(MATCHES_KEY);
+    if (saved) {
+      setMatches(JSON.parse(saved));
+      setInitialized(true);
+      return;
+    }
 
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setMatches(parsed);
-        setInitialized(true);
-        return;
-      }
+    const generated = [];
 
-      let firebaseData = null;
-      if (storedUser) {
-        const { username } = JSON.parse(storedUser);
-        firebaseData = await loadTournamentData(username);
-      }
+    groups.forEach(group => {
+      const size = group.teams.length;
+      const template = fixtureTemplates[size];
+      const groupLetter = group.name;
+      if (!template) return;
 
-      if (firebaseData?.matches?.length) {
-        setMatches(firebaseData.matches);
-        setInitialized(true);
-        return;
-      }
-
-      // Generate new matches
-      const generated = [];
-      groups.forEach(group => {
-        const size = group.teams.length;
-        const template = fixtureTemplates[size];
-        const groupLetter = group.name;
-        if (!template) return;
-
-        const teamMap = {};
-        group.teams.forEach((team, i) => {
-          teamMap[`${groupLetter}${i + 1}`] = team;
-        });
-
-        template.forEach(([home, away], idx) => {
-          const homeId = home.replace('A', groupLetter);
-          const awayId = away.replace('A', groupLetter);
-          const teamA = teamMap[homeId];
-          const teamB = teamMap[awayId];
-          if (teamA && teamB) {
-            generated.push({
-              id: `${groupLetter}-${idx}`,
-              group: groupLetter,
-              teamA,
-              teamB,
-              goalsA: '',
-              goalsB: ''
-            });
-          }
-        });
+      const teamMap = {};
+      group.teams.forEach((team, i) => {
+        teamMap[`${groupLetter}${i + 1}`] = team;
       });
 
-      setMatches(generated);
-      setInitialized(true);
-      localStorage.setItem(MATCHES_KEY, JSON.stringify(generated));
+      template.forEach(([home, away], idx) => {
+        const homeId = home.replace('A', groupLetter);
+        const awayId = away.replace('A', groupLetter);
+        const teamA = teamMap[homeId];
+        const teamB = teamMap[awayId];
+        if (teamA && teamB) {
+          generated.push({
+            id: `${groupLetter}-${idx}`,
+            group: groupLetter,
+            teamA,
+            teamB,
+            goalsA: '',
+            goalsB: ''
+          });
+        }
+      });
+    });
 
-      if (storedUser) {
-        const { username } = JSON.parse(storedUser);
-        const tournament = firebaseData?.tournament || {};
-        const teamNames = firebaseData?.teamNames || {};
-        saveTournamentData(username, {
-          tournament,
-          matches: generated,
-          teamNames
-        });
-      }
-    };
-
-    fetchOrGenerateMatches();
+    setMatches(generated);
+    setInitialized(true);
+    localStorage.setItem(MATCHES_KEY, JSON.stringify(generated));
   }, [isClientReady, initialized, groups]);
 
   const updateMatches = (updated) => {
     setMatches(updated);
     localStorage.setItem(MATCHES_KEY, JSON.stringify(updated));
     if (onUpdate) onUpdate(updated);
-
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const { username } = JSON.parse(storedUser);
-      loadTournamentData(username).then(data => {
-        saveTournamentData(username, {
-          tournament: data?.tournament || {},
-          matches: updated,
-          teamNames: data?.teamNames || {}
-        });
-      });
-    }
   };
 
   const handleInput = (id, field, value) => {

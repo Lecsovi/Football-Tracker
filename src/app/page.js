@@ -14,7 +14,6 @@ export default function Home() {
   const [page, setPage] = useState('setup');
   const [tournament, setTournament] = useState({ groups: [] });
   const [matches, setMatches] = useState([]);
-  const [teamNames, setTeamNames] = useState({}); // 🔹 added for global team name sync
 
   useEffect(() => {
     const fetchData = async () => {
@@ -27,8 +26,6 @@ export default function Home() {
         if (firebaseData) {
           setTournament(firebaseData.tournament || { groups: [] });
           setMatches(firebaseData.matches || []);
-          setTeamNames(firebaseData.teamNames || {}); // 🔹 load team names from Firestore
-          localStorage.setItem('tournament-team-names', JSON.stringify(firebaseData.teamNames || {}));
           setPage('groups');
         }
       }
@@ -41,10 +38,9 @@ export default function Home() {
       saveTournamentData(user.username, {
         tournament,
         matches,
-        teamNames // 🔹 include in Firestore update
       });
     }
-  }, [tournament, matches, teamNames, user]); // 🔹 added dependency
+  }, [tournament, matches, user]);
 
   const handleInitialize = (groupsConfig) => {
     const groups = groupsConfig.map((g) => ({
@@ -57,17 +53,6 @@ export default function Home() {
 
     setTournament({ groups });
     setMatches([]);
-
-    // 🔹 Set and save default team names
-    const defaultNames = {};
-    groups.forEach(group => {
-      group.teams.forEach(team => {
-        defaultNames[team.id] = team.name;
-      });
-    });
-    setTeamNames(defaultNames);
-    localStorage.setItem('tournament-team-names', JSON.stringify(defaultNames));
-
     setPage('groups');
   };
 
@@ -87,7 +72,6 @@ export default function Home() {
     setUser(null);
     setTournament({ groups: [] });
     setMatches([]);
-    setTeamNames({});
     setPage('setup');
   };
 
@@ -135,7 +119,6 @@ export default function Home() {
             onClick={() => {
               setTournament({ groups: [] });
               setMatches([]);
-              setTeamNames({});
               setPage('setup');
             }}
             className="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700"
