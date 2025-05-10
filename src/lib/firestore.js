@@ -1,27 +1,18 @@
 // src/lib/firestore.js
 
-import { collection, doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { doc, getDoc } from 'firebase/firestore';
 
 export async function loadTournamentData(username) {
   const docRef = doc(db, 'tournaments', username);
   const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
-    return docSnap.data();
-  } else {
-    console.log('No such document!');
-    return null;
-  }
+  return docSnap.exists() ? docSnap.data() : null;
 }
 
-
-// Save tournament data (groups + matches)
-export const saveTournamentData = async (userId, data) => {
-  const ref = doc(db, 'tournaments', userId);
-  await setDoc(ref, data);
-};
+export async function saveTournamentData(username, data) {
+  const docRef = doc(db, 'tournaments', username);
+  await setDoc(docRef, data, { merge: true });
+}
 
 // Load tournament data
 export const loadTournamentData = async (userId) => {
