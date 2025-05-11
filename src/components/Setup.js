@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Papa from 'papaparse';
 
 const SETUP_KEY = 'tournament-setup';
 const TEAM_NAMES_KEY = 'tournament-team-names';
@@ -66,6 +67,41 @@ export default function Setup({ onInitialize }) {
     onInitialize(groupsConfig);
   };
 
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const data = results.data;
+        const newGroupSizes = {};
+        const newTeamNames = {};
+
+        const grouped = data.reduce((acc, { Group, Team }) => {
+          if (!Group || !Team) return acc;
+          if (!acc[Group]) acc[Group] = [];
+          acc[Group].push(Team);
+          return acc;
+        }, {});
+
+        Object.entries(grouped).forEach(([group, teams]) => {
+          newGroupSizes[group] = teams.length;
+          teams.forEach((name, index) => {
+            const id = `${group}${index + 1}`;
+            newTeamNames[id] = name;
+          });
+        });
+
+        setGroupCount(Object.keys(grouped).length);
+        setGroupSizes(newGroupSizes);
+        setTeamNames(newTeamNames);
+        localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(newTeamNames));
+      }
+    });
+  };
+
   return (
     <div className="space-y-8 bg-white/70 backdrop-blur-md p-6 rounded-xl shadow-md">
       <div>
@@ -82,6 +118,18 @@ export default function Setup({ onInitialize }) {
             setGroupCount(isNaN(parsed) ? 0 : parsed);
           }}
           className="border w-24 p-3 text-lg rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+      </div>
+
+      <div className="text-center mb-4">
+        <label className="block text-sm font-medium text-slate-700 mb-2">
+          Import Teams from CSV (format: Group,Team)
+        </label>
+        <input
+          type="file"
+          accept=".csv"
+          onChange={handleFileUpload}
+          className="mx-auto text-sm border rounded px-3 py-2 shadow-sm"
         />
       </div>
 
