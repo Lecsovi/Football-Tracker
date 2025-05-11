@@ -14,6 +14,7 @@ export default function Setup({ onInitialize }) {
 
   useEffect(() => {
     setHasMounted(true);
+
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(SETUP_KEY);
       const savedNames = localStorage.getItem(TEAM_NAMES_KEY);
@@ -26,6 +27,7 @@ export default function Setup({ onInitialize }) {
         });
         setGroupSizes(sizes);
       }
+
       if (savedNames) {
         setTeamNames(JSON.parse(savedNames));
       }
@@ -60,46 +62,44 @@ export default function Setup({ onInitialize }) {
       });
       return { letter, size, teams };
     });
+
     localStorage.setItem(SETUP_KEY, JSON.stringify(groupsConfig));
     onInitialize(groupsConfig);
   };
 
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const csvText = e.target.result;
-      Papa.parse(csvText, {
-        header: true,
-        delimiter: ';',
-        skipEmptyLines: true,
-        complete: (results) => {
-          const rows = results.data;
-          const newTeamNames = {};
-          const newGroupSizes = {};
-          rows.forEach(row => {
-            const id = row.id?.trim();
-            const name = row.name?.trim();
-            if (id && name) {
-              newTeamNames[id] = name;
-              const letter = id.charAt(0);
-              newGroupSizes[letter] = (newGroupSizes[letter] || 0) + 1;
-            }
+    Papa.parse(file, {
+      header: true,
+      delimiter: ';', // <-- this handles semicolons
+      complete: (results) => {
+        const data = results.data;
+        const newGroupSizes = {};
+        const newTeamNames = {};
+
+        const grouped = data.reduce((acc, { Group, Team }) => {
+          if (!Group || !Team) return acc;
+          if (!acc[Group]) acc[Group] = [];
+          acc[Group].push(Team);
+          return acc;
+        }, {});
+
+        Object.entries(grouped).forEach(([group, teams]) => {
+          newGroupSizes[group] = teams.length;
+          teams.forEach((name, index) => {
+            const id = `${group}${index + 1}`;
+            newTeamNames[id] = name;
           });
-          const newGroupCount = Object.keys(newGroupSizes).length;
-          setTeamNames(newTeamNames);
-          setGroupSizes(newGroupSizes);
-          setGroupCount(newGroupCount);
-          localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(newTeamNames));
-          localStorage.setItem(SETUP_KEY, JSON.stringify(
-            Object.entries(newGroupSizes).map(([letter, size]) => ({ letter, size }))
-          ));
-        }
-      });
-    };
-    reader.readAsText(file, 'UTF-8');
+        });
+
+        setGroupCount(Object.keys(grouped).length);
+        setGroupSizes(newGroupSizes);
+        setTeamNames(newTeamNames);
+        localStorage.setItem(TEAM_NAMES_KEY, JSON.stringify(newTeamNames));
+      }
+    });
   };
 
   return (
@@ -121,23 +121,23 @@ export default function Setup({ onInitialize }) {
         />
       </div>
 
-      <div className="mb-4">
-        <label className="block text-lg font-medium mb-2 text-slate-700">
-          Import Team Names from CSV:
+      <div className="text-center mb-4">
+        <label className="block text-sm font-medium text-slate-700 mb-2">
+          Import Teams from CSV (format: Group,Team)
         </label>
         <input
           type="file"
           accept=".csv"
           onChange={handleFileUpload}
-          className="block"
+          className="mx-auto text-sm border rounded px-3 py-2 shadow-sm"
         />
-        <p className="text-sm text-slate-500 mt-1">Format: <code>id;name</code> per row (e.g., <code>A1;Barcelona</code>)</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {Array.from({ length: groupCount }, (_, i) => {
           const letter = String.fromCharCode(65 + i);
           const size = groupSizes[letter] ?? 4;
+
           return (
             <div
               key={letter}
@@ -146,6 +146,7 @@ export default function Setup({ onInitialize }) {
               <label className="block text-lg font-bold text-slate-800 mb-1">
                 Group {letter}
               </label>
+
               <input
                 type="number"
                 min="3"
@@ -155,6 +156,7 @@ export default function Setup({ onInitialize }) {
                 className="border w-20 p-2 rounded mb-2 block shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
               <span className="text-sm text-slate-500">Number of teams</span>
+
               <div className="flex flex-col items-start gap-2">
                 {Array.from({ length: size }, (_, j) => {
                   const id = `${letter}${j + 1}`;
