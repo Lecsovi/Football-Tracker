@@ -73,7 +73,7 @@ export default function Setup({ onInitialize }) {
 
     Papa.parse(file, {
       header: true,
-      skipEmptyLines: true,
+      delimiter: ';', // <-- this handles semicolons
       complete: (results) => {
         const data = results.data;
         const newGroupSizes = {};
